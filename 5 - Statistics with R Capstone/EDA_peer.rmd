@@ -1,0 +1,173 @@
+---
+title: "Peer Assessment I"
+output:
+  html_document: 
+    pandoc_args: [
+      "--number-sections",
+    ]
+---
+
+
+First, let us load the data and necessary packages:
+
+```{r load, message = FALSE}
+load("ames_train.Rdata")
+library(MASS)
+library(dplyr)
+library(ggplot2)
+library(tidyverse)
+library(BAS)
+library(Metrics)
+library(broom)
+```
+
+#
+Make a labeled histogram (with 30 bins) of the ages of the houses in the data set, and describe the distribution.
+
+
+```{r Q1}
+# type your code for Question 1 here, and Knit
+ggplot(data = ames_train, aes(x=Year.Built)) + geom_histogram(bins=30) + scale_x_reverse()
+```
+
+
+* * *
+
+The distribution of houses based on the year they were built shows a bit of a right skew in terms of age where the older the house the farther on the right it'll be located on the x-axis. The graph also shows multimodality. The right skew could be correlated to the fact that the population at that time was way lesser than the population right now and because of that, demand for houses could have been way lesser in that time period. 
+
+
+* * *
+
+
+#
+The mantra in real estate is "Location, Location, Location!" Make a graphical display that relates a home price to its neighborhood in Ames, Iowa. Which summary statistics are most appropriate to use for determining the most expensive, least expensive, and most heterogeneous (having the most variation in housing price) neighborhoods? Report which neighborhoods these are based on the summary statistics of your choice. Report the value of your chosen summary statistics for these neighborhoods.
+
+
+```{r Q2, fig.width=17, fig.height=10}
+# type your code for Question 2 here, and Knit
+ggplot(data = ames_train, aes(x=Neighborhood, y=price)) + geom_boxplot()
+df <- ames_train %>% group_by(Neighborhood) %>% summarise(stddev = sd(price), mean=mean(price), median=median(price))
+df %>% arrange(desc(stddev))
+df %>% arrange(desc(median))
+df %>% arrange(median)
+```
+
+
+* * *
+
+The most heterogeneous neighborhood with the summary statistic, stddev is Stone Brook. Likewise, the neighborhood that has the least expensive with the summary statistic, median is Stone Brook as well. The most expensive neighborhood in terms of price with the summary statistic of median is Meadow Village.
+
+* * *
+
+# 
+
+Which variable has the largest number of missing values? Explain why it makes sense that there are so many missing values for this variable.
+
+```{r Q3}
+# type your code for Question 3 here, and Knit
+df <- colSums(is.na(ames_train))
+df[74]
+```
+
+
+* * *
+
+The reason as to why Pool.QC has the largest number of missing values is because most people don't have pools in their houses and it is considered by most that having a pool is a luxury in their homes because the cost of having and maintaining one is usually really high, it makes sense that it Pool.QC has the largest number of missing values because having a pool is not financially accessible by the majority.
+
+
+* * *
+
+#
+
+We want to predict the natural log of the home prices. Candidate explanatory variables are lot size in square feet (Lot.Area), slope of property (Land.Slope), original construction date (Year.Built), remodel date (Year.Remod.Add), and the number of bedrooms above grade (Bedroom.AbvGr). Pick a model selection or model averaging method covered in the Specialization, and describe how this method works. Then, use this method to find the best multiple regression model for predicting the natural log of the home prices.
+
+
+```{r Q4}
+# type your code for Question 4 here, and Knit
+ames_train <- ames_train %>% mutate(log_price = log(price))
+bas_houses <- bas.lm(log_price ~ Lot.Area + Land.Slope + Year.Built + Year.Remod.Add + Bedroom.AbvGr, data = ames_train, prior = 'JZS', modelprior = uniform())
+summary(bas_houses)
+house_predict <- predict(bas_houses, estimator="BPM", se.fit = TRUE)
+variable.names(house_predict)
+```
+
+* * *
+
+Using the BAS package which implements Bayesian Regression, the response variable that's chosen is the log of the home prices and the explanatory variables picked were the lot size in square feet, slope of the property, original construction date, the remodel date and the number of bedrooms above grade. The coefficients of the explanatory variables will have Zellner-Siow Cauchy prior and a Jeffrey's prior on sigma. The prior distribution of the model with be a uniform distribution. Then our model selection method will be the best predictive model which has predictions that's closest to BMA under squared error loss. 
+
+The best predictive model is the model with all the predictors in it.
+
+
+* * *
+
+#
+
+Which home has the largest squared residual in the previous analysis (Question 4)? Looking at all the variables in the data set, can you explain why this home stands out from the rest (what factors contribute to the high squared residual and why are those factors relevant)?
+
+
+```{r Q5}
+# type your code for Question 5 here, and Knit
+fitted_houses = fitted(bas_houses, estimator="BPM")
+resid_houses = ames_train$log_price - fitted_houses
+frame <- data.frame(fitted=fitted_houses, resid=resid_houses, actual=ames_train$log_price, absresid=abs(resid_houses))
+
+max(frame$absresid, na.rm = FALSE)
+max_index <- which(frame$absresid==max(frame$absresid, na.rm = FALSE))
+print.data.frame(ames_train[max_index,])
+```
+
+* * *
+
+Possible factors that could be the reason as to why that certain home has the largest squared residual could be attributed to the fact that it is a home built from 1932. The answer to question 1 shows that there are only a few homes built in that period of time relative to later times. There could be a lack of data in that time period for patterns to be picked up.
+
+FirePlace.Qty is the variable with the 5th most missing number of NAs, the home that has the highest squared residual has a value for that variable which is 'Good' which made the fitted value to it higher than what it actually is, that might also be a contributing factor as to why it has the highest squared residual among all homes.
+
+* * *
+
+#
+
+Use the same model selection method you chose in Question 4 to again find the best multiple regression model to predict the natural log of home prices, but this time **replacing Lot.Area with log(Lot.Area)**. Do you arrive at a model including the same set of predictors?
+
+
+```{r Q6}
+# type your code for Question 6 here, and Knit
+bas_houses <- bas.lm(log_price ~ log(Lot.Area) + Land.Slope + Year.Built + Year.Remod.Add + Bedroom.AbvGr, data = ames_train, prior = "JZS", modelprior = uniform())
+summary(bas_houses)
+house_predict <- predict(bas_houses, estimator="BPM", se.fit = TRUE)
+variable.names(house_predict)
+```
+
+* * *
+
+With Lot.Area being log transformed, we can see that the Best Predictive Model has a different set of predictors from the original model without the log transform on Lot.Area.
+
+#
+
+Do you think it is better to log transform Lot.Area, in terms of assumptions for linear regression? Make graphs of the predicted values of log home price versus the true values of log home price for the regression models selected for Lot.Area and log(Lot.Area). Referencing these two plots, provide a written support that includes a quantitative justification for your answer in the first part of question 7.
+
+```{r Q7}
+# type your code for Question 7 here, and Knit
+fitted_houses = fitted(bas_houses, estimator="BPM")
+resid_houses = ames_train$log_price - fitted_houses
+frame2 <- data.frame(fitted=fitted_houses, resid=resid_houses, actual=ames_train$log_price  ,absresid=abs(resid_houses))
+
+ggplot(data = frame, aes(x = fitted, y = actual)) +
+  geom_point(alpha = 0.6) +
+  labs(x = "Fitted values", y = "Actual")
+ggplot(data = frame2, aes(x = fitted, y = actual)) +
+  geom_point(alpha = 0.6) +
+  labs(x = "Fitted values (log(Lot.Area))", y = "Actual (log(Lot.Area))")
+
+rmse(frame$fitted, frame$actual) # RMSE, Non-Log Transformed Lot.Area
+rmse(frame2$fitted, frame2$actual) # RMSE, Log Transformed Lot.Area
+```
+
+* * *
+
+It is better to log transform Lot.Area as shown in the graphs above. The values are less spread out for the graph where the Lot.Area is log transformed as compared to the one that does not log transform Lot.Area. 
+
+A way to justify why log transforming Lot.Area is preferable is by showing the Root Mean Square Error of both. The Root Mean Square Error of the model which has the log transformed Lot.Area is lower than the one without the log transform which also shows that the residuals are less spread out for the models' output when the Lot.Area is log transformed.. 
+
+
+* * *
+###

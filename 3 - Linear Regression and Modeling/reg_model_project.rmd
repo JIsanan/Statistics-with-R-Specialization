@@ -1,0 +1,262 @@
+---
+title: "Modeling and prediction for movies"
+output: 
+  html_document: 
+    fig_height: 4
+    highlight: pygments
+    theme: spacelab
+---
+
+## Setup
+
+### Load packages
+
+```{r load-packages, message = FALSE}
+library(ggplot2)
+library(dplyr)
+library(statsr)
+library(GGally)
+```
+
+### Load data
+
+```{r load-data}
+load("movies.Rdata")
+```
+
+
+
+* * *
+
+## Part 1: Data
+
+The movies dataset contain 651 movies that were randomly sampled. The movies that were sampled were also produced and released before 2016.
+
+The dataset contains various information from websites that store and deal with movies such as imdb and rottentomatoes. In the dataset, information such as some actors/actress and directors are also included, included are also whether one of the actors/actress in the movie won. It also includes if the movie was nominated or won the best picture award.
+
+The data was randomly sampled so we could say that it could be generalized towards the entire population of movies, however since this is only randomly sampled, we cannot conclude causality within the data but only correlation.
+
+* * *
+
+## Part 2: Research question
+
+As an avid movie-watcher, I believe that movie popularity has something to do with the ratings of movies. And personally, i've used imdb when it comes to checking the ratings of movies. So i'd like to answer the following question:
+
+Is it possible to predict the imdb scores of a movie based on data from other movies?
+
+* * *
+
+## Part 3: Exploratory data analysis
+
+We'd first look at the summary for the imdb_rating variable in the movies data
+
+```{r}
+summary(movies$imdb_rating)
+```
+
+The max of the score is 9.0 while the real max imdb rating is 10, the lowest rating present in the dataset is also 1.9 while the real one is lower than that. There's no data in the dataset that deals with movies with higher ratings and the lower rating. The median score is also 6.6 and the mean is 6.4 which shows that majority of the people vote high than they do lower.
+
+Let's look at the distribution of imdb_ratings.
+
+```{r}
+ggplot(data=movies, aes(x=imdb_rating)) + geom_histogram(binwidth=0.2)
+```
+
+The distribution shows a bit of a left skew which also shows that most movies in the data have a higher imdb rating.
+
+There are 2 score variables in the dataset, let's see how much correlation they'll have with our imdb_rating
+
+```{r}
+movies %>% summarise(cor(audience_score, imdb_rating))
+plot_ss(y=imdb_rating, x=audience_score, data=movies, showSquares = TRUE)
+```
+
+There is a strong positive correlation between imdb_rating and audience_score, which is to be expected as imdb ratings are also from the audience the same as how rottentomatoes handle audience scores.
+
+```{r}
+movies %>% summarise(cor(critics_score, imdb_rating))
+plot_ss(y=imdb_rating, x=critics_score, data=movies, showSquares = TRUE)
+```
+
+There is a weaker relationship between imdb_rating and critics_score compared to imdb_rating and audience_score but that's to be expected because critics are specifically curated audiences by rottentomatoes.
+
+* * *
+
+## Part 4: Modeling
+
+Our response variable for this model will be imdb_rating.
+
+For the variables, we'll be excluding the imdb_url and rt_url because those variables only contain urls to the movies and will highly likely not have any effect on the model. We'll also be excluding the title because it is a categorical variable that is unique for each member in the dataset just like the urls and there's already the title_type variable. Actor and director names have also been excluded because there's already best actor and director variables that would be used as dummy variables.
+
+Because we'll be using this model for prediction, our model selection will be via backward elimination with the adjusted R-squared as basis. Adjusted R-squared will be the basis because it yields a model with more reliable predictions.
+
+```{r}
+movies <- movies %>% select(imdb_rating, title_type, genre, runtime, mpaa_rating, studio, thtr_rel_year, thtr_rel_month, thtr_rel_day, dvd_rel_year, dvd_rel_month, dvd_rel_day, imdb_num_votes, critics_rating, critics_score, audience_rating, audience_score, best_pic_nom, best_pic_win, best_actor_win, best_actress_win, best_dir_win, top200_box)
+movies <- na.omit(movies)
+
+model <- lm(imdb_rating ~ title_type + genre + runtime + mpaa_rating + studio + thtr_rel_year + thtr_rel_month + thtr_rel_day + dvd_rel_year + dvd_rel_month + dvd_rel_day + imdb_num_votes + critics_rating + critics_score + audience_rating + audience_score + best_pic_nom + best_pic_win + best_actor_win + best_actress_win + best_dir_win + top200_box, data=movies)
+summary(model)$adj.r.squared
+
+```
+
+Remvoing mpaa rating yielded the highest increase in adjusted r-sqaured so we'll remove that.
+```{r}
+
+model <- lm(imdb_rating ~ title_type + genre + runtime + studio + thtr_rel_year + thtr_rel_month + thtr_rel_day + dvd_rel_year + dvd_rel_month + dvd_rel_day + imdb_num_votes + critics_rating + critics_score + audience_rating + audience_score + best_pic_nom + best_pic_win + best_actor_win + best_actress_win + best_dir_win + top200_box, data=movies)
+summary(model)$adj.r.squared
+
+
+```
+Removing thtr_rel_year yielded the highest increase in adjusted r-squared so we'll remove that.
+
+```{r}
+model <- lm(imdb_rating ~ title_type + genre + runtime + studio  + thtr_rel_month + thtr_rel_day + dvd_rel_year + dvd_rel_month + dvd_rel_day + imdb_num_votes + critics_rating + critics_score + audience_rating + audience_score + best_pic_nom + best_pic_win + best_actor_win + best_actress_win + best_dir_win + top200_box, data=movies)
+summary(model)$adj.r.squared
+
+```
+
+Removing thtr_rel_day yielded the highest increase in adjusted r-squared so we'll remove that.
+
+```{r}
+
+model <- lm(imdb_rating ~ title_type + genre + runtime + studio  + thtr_rel_month + dvd_rel_year + dvd_rel_month + dvd_rel_day + imdb_num_votes + critics_rating + critics_score + audience_rating + audience_score + best_pic_nom + best_pic_win + best_actor_win + best_actress_win + best_dir_win + top200_box, data=movies)
+summary(model)$adj.r.squared
+```
+
+Removing top200_box yielded the highest increase in adjusted r-squared so we'll remove that
+
+```{r}
+model <- lm(imdb_rating ~ title_type + genre + runtime + studio  + thtr_rel_month + dvd_rel_year + dvd_rel_month + dvd_rel_day + imdb_num_votes + critics_rating + critics_score + audience_rating + audience_score + best_pic_nom + best_pic_win + best_actor_win + best_actress_win + best_dir_win , data=movies)
+summary(model)$adj.r.squared
+
+```
+
+
+Removing best_pic_win yielded the highest increase in adjusted r-squared so we'll remove that
+
+```{r}
+
+model <- lm(imdb_rating ~ title_type + genre + runtime + studio  + thtr_rel_month + dvd_rel_year + dvd_rel_month + dvd_rel_day + imdb_num_votes + critics_rating + critics_score + audience_rating + audience_score + best_pic_nom + best_actor_win + best_actress_win + best_dir_win , data=movies)
+summary(model)$adj.r.squared
+```
+
+Removing best_actor_win yielded the highest increase in adjusted r-squared so we'll remove that
+
+```{r}
+model <- lm(imdb_rating ~ title_type + genre + runtime + studio  + thtr_rel_month + dvd_rel_year + dvd_rel_month + dvd_rel_day + imdb_num_votes + critics_rating + critics_score + audience_rating + audience_score + best_pic_nom + best_actress_win + best_dir_win , data=movies)
+summary(model)$adj.r.squared
+
+```
+
+Removing best_actress_win yielded the highest increase in adjusted r-squared so we'll remove that
+
+```{r}
+model <- lm(imdb_rating ~ title_type + genre + runtime + studio  + thtr_rel_month + dvd_rel_year + dvd_rel_month + dvd_rel_day + imdb_num_votes + critics_rating + critics_score + audience_rating + audience_score + best_pic_nom + best_dir_win , data=movies)
+summary(model)$adj.r.squared
+
+```
+
+Removing dvd_rel_year yielded the highest increase in adjusted r-squared so we'll remove that
+```{r}
+
+model <- lm(imdb_rating ~ title_type + genre + runtime + studio  + thtr_rel_month + dvd_rel_month + dvd_rel_day + imdb_num_votes + critics_rating + critics_score + audience_rating + audience_score + best_pic_nom + best_dir_win , data=movies)
+summary(model)$adj.r.squared
+```
+
+Removing any more variables would cause the adjusted r-squared to decrease so our final model is:
+```{r}
+model <- lm(imdb_rating ~ title_type + genre + runtime + studio + thtr_rel_month + dvd_rel_month + dvd_rel_day + imdb_num_votes + critics_rating + critics_score + audience_rating + audience_score + best_pic_nom + best_dir_win , data=movies)
+summary(model)
+```
+
+Our R-squared is 0.9057 which is the variance explained by the model, while the adjusted R-squared is 0.8508, it is the same as R-squared expect it gives penalties to the amount of predictors used. The model also has a degrees of freedom of 400 which is n - k - 1, k being the number of predictors used and another subtraction of 1 because of the intercept.
+
+for model diagnostics:
+
+For collinearity we'll be checking the relationship between the residuals and the numerical predictors.
+```{r}
+ggplot(data = model, aes(x = movies$runtime, y = model$residuals)) +
+  geom_point() +
+  geom_hline(yintercept = 0, linetype = "dashed") +
+  xlab("Runtime ") +
+  ylab("Residuals")
+ggplot(data = model, aes(x = movies$imdb_num_votes, y = model$residuals)) +
+  geom_point() +
+  geom_hline(yintercept = 0, linetype = "dashed") +
+  xlab("imdb_num_votes") +
+  ylab("Residuals")
+ggplot(data = model, aes(x = movies$critics_score, y = model$residuals)) +
+  geom_point() +
+  geom_hline(yintercept = 0, linetype = "dashed") +
+  xlab("Critics Score") +
+  ylab("Residuals")
+ggplot(data = model, aes(x = movies$audience_score, y = model$residuals)) +
+  geom_point() +
+  geom_hline(yintercept = 0, linetype = "dashed") +
+  xlab("Audience score") +
+  ylab("Residuals")
+```
+
+The plots above show a random scatter around 0, so the first condition is satisfied.
+
+Residuals plot
+```{r}
+ggplot(data = model, aes(x = .fitted, y = .resid)) +
+  geom_point() +
+  geom_hline(yintercept = 0, linetype = "dashed") +
+  xlab("Fitted values") +
+  ylab("Residuals")
+```
+
+The residuals plot shown above show a random scatter around 0, so the third condition is satisfied which is constant variability of residuals.
+
+Residuals Distribution
+```{r}
+ggplot(data = model, aes(x = .resid)) +
+  geom_histogram(binwidth = 0.2) +
+  xlab("Residuals")
+```
+
+The distribution plot shows a bit of a skew but it is still nearly normal with mean 0 which satisfies the second condition for nearly normal residuals with mean 0.
+
+The data is randomly sampled which also shows independent observations and have independent residuals so the fourth condition is satisfied as well.
+* * *
+
+## Part 5: Prediction
+
+We will be predicting the movie: 'Manchester by the Sea' which is a drama film released in 2016. The film has an imdb score of 7.8 as of April 1, 2019, let's see if our model can make a prediction that will yield a value within the interval. Our confidence interval will be 95%.
+
+```{r}
+
+new_data <- data.frame(title_type = 'Feature Film',
+                       genre = 'Drama',
+                       runtime = 137,
+                       thtr_rel_month = 12,
+                       dvd_rel_month = 2,
+                       dvd_rel_day = 21,
+                       studio='Roadside Attractions',
+                       imdb_num_votes=211017,
+                       critics_rating='Fresh',
+                       critics_score=96,
+                       audience_score=77,
+                       audience_rating='Upright',
+                       best_dir_win='yes',
+                       best_pic_nom='yes')
+
+predict(model, new_data, interval='prediction', level = 0.95)
+```
+
+As you can see our predictor managed to catch the real imdb score within the interval of our predictor. 
+
+Sources:
+imdb https://www.imdb.com/title/tt4034228/
+rottentomatoes https://www.rottentomatoes.com/m/manchester_by_the_sea
+awards https://www.imdb.com/title/tt4034228/awards
+
+* * *
+
+## Part 6: Conclusion
+
+  The model that was created here for the use of prediction shows promise as something that could probably be used to predict future movies of our time, but note that those kinds of prediction could fall under extrapolation which is very risky and could lead to inaccurate predictions. The size of the dataset that was also used here could also be increased so that it could lead to a better model because the current dataset is very limited and does not contain newer movies.
+
+  It should also be noted that the model could still be improved by adding in and removing some variables. It is not the perfect predictive model but it could be a start of something that could be made better in the future.

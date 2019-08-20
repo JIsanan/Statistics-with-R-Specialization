@@ -1,0 +1,447 @@
+---
+title: "Peer Assessment II"
+output:
+  html_document: 
+    pandoc_args: [
+      "--number-sections",
+    ]
+---
+
+# Background
+
+As a statistical consultant working for a real estate investment firm, your task is to develop a model to predict the selling price of a given home in Ames, Iowa. Your employer hopes to use this information to help assess whether the asking price of a house is higher or lower than the true value of the house. If the home is undervalued, it may be a good investment for the firm.
+
+# Training Data and relevant packages
+
+
+```{r load, message = FALSE}
+load("ames_train.Rdata")
+```
+
+
+```{r packages, message = FALSE}
+library(statsr)
+library(dplyr)
+library(ggplot2)
+library(GGally)
+library(BAS)
+library(MASS)
+library(Metrics)
+```
+
+## Part 1 - Exploratory Data Analysis (EDA)
+* * *
+
+Before we get into looking at the variables that may be used for predicting the price of a lot, we have to look at price itself and analyze the variable first.
+
+```{r}
+ames_train %>% summarise(mean=mean(price), median=median(price), stddev=sd(price))
+```
+
+Price of lots in the dataset has a mean of \$181190 and a median of \$159467 with a standard deviation of \$81910, while the minimum price is \$12789 and the maximum being \$615000, which may indicate the presence of outliers
+.
+
+The size of the lot in square feet(Lot.Area) may show a relationship with the price of a house. There's a general consensus that would regard houses with large lots would then fetch for high prices. Let's check if that may be the case and there is indeed a correlation between the two variables.
+
+First we'd like to look at the distribution of Lot.Area and see if the houses are evenly spread out.
+
+```{r creategraphs}
+ggplot(data = ames_train, aes(x = Lot.Area)) + geom_histogram()
+```
+
+We can see that the distribution of Lot.Area for houses is heavily right skewed. It may be caused by outliers that heavily skew the distribution.
+
+Then we'd like to see the correlation between price and Lot.Area, let's plot the regression line with the dependent variable price and independent being the predictor, Lot.Area, along with the actual values of Price.
+
+```{r}
+ggplot(data = ames_train, aes(x = Lot.Area, y = price)) + geom_point() + geom_smooth(method='lm')
+cor(ames_train$Lot.Area, ames_train$price)
+```
+
+Based on the plot, we can see that there is a positive but weak correlation between Lot.Area and price. We can also see how concentrated the data is on the left side of the plot, log transforming Lot.Area may help bring the values(especially the high Lot.Area houses) closer together.
+
+
+The year the house was built could show a correlation between price, older houses tend to wear and tear that may cause the prices to depreciate. First, we'd like to see a distribution of the houses in terms of Year.Built
+
+```{r creategraphs2}
+ggplot(data = ames_train, aes(x = Year.Built)) + geom_histogram()
+```
+
+Older houses tend to be rare in the dataset especially in the 1800s to the 1940s. But there seems to be an influx of houses in the 1950s but then dies down just before having a much higher influx of houses from the years approaching 2000s to beyond 2000.
+
+We'll then plot the regression line with Price as the response variable and Year.Built as the explanatory variable along with the actual values.
+
+```{r}
+ggplot(data = ames_train, aes(x = Year.Built, y = price)) + geom_point() + geom_smooth(method='lm')
+cor(ames_train$Year.Built, ames_train$price)
+```
+
+There is a moderate positive correlation between Year.Built and price as seen in the plot.
+
+The 'Street' or the type of road access to the property(if gravel or paved) may affect its price due to the fact that some roads depending on their material are easier to drive or walk on than the others. 
+
+```{r}
+ggplot(data = ames_train, aes(x = Street, y=price)) + geom_boxplot()
+```
+
+A boxplot for the two types of streets shows that the roads wherein the material is Paved in the dataset has a higher median compared to roads wherein the type is Gravel. However, the amount of 'Gravel' streets in the dataset may still be insufficient for us to conclude that Paved road access in general has a higher price as compared to Gravel road access to the properties.
+
+The condition of sale may have an effect on the price of a lot. Partial sales which are sales of homes that were not completed when last assessed may yield higher prices for the lots.
+
+```{r}
+ggplot(data = ames_train, aes(x = Sale.Condition, y=price)) + geom_boxplot()
+```
+
+It seems that the median for all the Sale Conditions save for Partial, have more or less equal medians. When the Sale Condition is Partial, there is clearly a difference between the median as compared to the other Sale Conditions since it is generally considered to be a new home, prices may be higher because it is a recent home or house, as seen in the previous plot for Year.Built vs. Price. Since newer homes tend to be sold for much higher prices.
+
+The overall quality of the house's material and finish is usually an indicator of the price of a house. Houses that generally have poor quality material will usually cost less as compared to houses that have a high quality finish.
+
+```{r}
+ggplot(data = ames_train, aes(x = Overall.Qual)) + geom_histogram(binwidth=1)
+```
+
+The histogram shows that the dataset doesn't have a lot of houses with low quality finish, that may be attributed to the fact that the area itself has an average to high quality of houses most of the time, and houses with low quality material are generally a rarity.
+
+```{r}
+ggplot(data = ames_train, aes(x = Overall.Qual, y=price)) + geom_point() + geom_smooth(method='lm')
+cor(ames_train$Overall.Qual, ames_train$price)
+```
+
+The regression plot shows a strong positive correlation between the quality of the materials used in houses and the price of the lot. The quality of the house may be a good predictor for the price.
+
+The months the lot was sold could be a possible predictor for the price of a lot.
+
+```{r}
+ggplot(data = ames_train, aes(x = as.factor(Mo.Sold), y=price)) + geom_boxplot()
+```
+
+The plot shows that in all of the months, the median price were more or less equal, which shows that it may not matter as to what month the lot was sold.
+
+The number of rooms may also be a factor for how much a house is priced, first, we'll check the distribution of the Total Rooms in the dataset.
+
+```{r}
+ggplot(data = ames_train, aes(x = TotRms.AbvGrd)) + geom_histogram(binwidth=1)
+```
+
+The distribution has a bit of a right skew with the median number of rooms per house being 6. 
+
+We'll then check the correlation between the total number of rooms with the price of a lot.
+
+```{r}
+ggplot(data = ames_train, aes(x = TotRms.AbvGrd, y=price)) + geom_point() + geom_smooth(method='lm')
+cor(ames_train$TotRms.AbvGrd, ames_train$price)
+```
+
+There is a moderate positive correlation between the two variables. Large number of rooms may indicate a larger house or a large number of floors which may increase its price.
+
+The number of kitchens in a house may indicate that a house has substantial area or also a large amount of floors to be able to support multiple kitchens which may in turn have a large price the more kitchens a house may have.
+
+```{r}
+ggplot(data = ames_train, aes(x = Kitchen.AbvGr)) + geom_histogram(binwidth=1)
+```
+
+The distribution shows that most houses only have a single kitchen while some would have two kitchens and rarely without a kitchen.
+
+```{r}
+
+ggplot(data = ames_train, aes(x = Kitchen.AbvGr, y=price)) + geom_point() + geom_smooth(method='lm')
+cor(ames_train$Kitchen.AbvGr, ames_train$price)
+```
+
+There is a very weak negative correlation between the two variables, the number of kitchens may most likely not be a good indicator for the price of a lot.
+
+Same with Kitchen, the total number of bedrooms may indicate a larger house or a lot of floors which in turn may show a correlation with the price of the lot.
+
+```{r}
+ggplot(data = ames_train, aes(x = Bedroom.AbvGr)) + geom_histogram(binwidth=1)
+```
+
+The number of bedrooms have a median of 3, which may indicate that most houses have families or a group living in it.
+
+```{r}
+ggplot(data = ames_train, aes(x = Bedroom.AbvGr, y=price)) + geom_point() + geom_smooth(method='lm')
+cor(ames_train$Bedroom.AbvGr, ames_train$price)
+```
+
+There is a weak positive correlation between the two variables, the number of bedrooms may not be a good predictor as to the price of a lot.
+
+Next, a pairwise comparison of our multivariate data would be necessary as to check if any of the independent variables we've just checked are correlated with each other.
+
+```{r fig.height=10, fig.width=10}
+ames_subset <- subset(ames_train, select = c(Lot.Area, Year.Built, Overall.Qual, Mo.Sold, TotRms.AbvGrd, Kitchen.AbvGr, Bedroom.AbvGr))
+
+ggpairs(ames_subset, lower = list(continuous='smooth'))
+```
+
+There are some noticeable information in the pairwise plot, one of them is the moderately positive correlation between Year.Built and Overall.Qual. It would make sense that the two variables would have a correlation coefficient of 0.6 as the quality of the building may worsen as time passes, or the modern materials used on newer houses were of much higher quality as compared to the old materials used on older houses. There is also a moderately positive correlation of 0.675 between Bedroom.AbvGr and TotRms.AbvGr which would make sense because the more bedrooms a house would have would equate to the total rooms of a house also increasing.
+
+In this Exploratory Data Analysis, there were discoveries such as variables that are actually correlated with each other in the pairwise plot and a discovery that the overall quality of a house may be a strong indicator as to what the price of a lot may be. There was also the sale condition which had an interesting difference when the sale is Partial which may be attributed to the fact that Partial sale conditions would indicate newer houses.
+
+* * *
+
+## Part 2 - Development and assessment of an initial model, following a semi-guided process of analysis
+
+### Section 2.1 An Initial Model
+
+
+* * *
+
+The variables that were chosen for the inital model were all the variables that were tested against price in the exploratory data analysis. Though there may be correlation between the coefficients of the predictors, it does not automatically mean that it should be excluded from the linear regression model. However, variables that could be significant predictors would be the ones that yielded a moderate to strong correlation to the price of a lot in the simple regression plot in the exploratory data analysis. 
+
+```{r fit_model}
+
+ames_subset <- subset(ames_train, select = c(price, Lot.Area, Year.Built, Overall.Qual, Street, Sale.Condition, Mo.Sold, TotRms.AbvGrd, Kitchen.AbvGr, Bedroom.AbvGr))
+
+model <- lm(price ~ . , data=ames_subset)
+
+summary(model)
+
+```
+
+* * *
+
+### Section 2.2 Model Selection
+
+* * *
+
+```{r model_select}
+AICmodel <- stepAIC(model, direction="backward", k=2)
+BICmodel <- stepAIC(model, k=log(nrow(ames_subset)), direction="backward")
+```
+
+The model selection methods that were chosen were Akaike information criterion (AIC) and Bayesian Information Criterion (BIC) with the mode of stepwise search being "Backward". Both model selection methods arrive at the same model dropping both Street and month sold as their predictors. With models dropping both the same predictors, it can be assumed that both those variables add unnecessary model complexity.
+
+* * *
+
+### Section 2.3 Initial Model Residuals
+
+
+* * *
+
+
+```{r model_resid}
+ggplot(data=ames_subset, aes(x=price, y=AICmodel$resid)) + 
+  geom_point(alpha = 0.6) + geom_hline(yintercept = 0, linetype = "dashed")
+  labs(x = "Fitted values", y = "Actual")
+```
+
+The residuals plot shows a random spread of around 0 but it then shows that it underpredicts lots that have a high price. That may show a problem for predicting the price for when the actual price of the lot is really supposed to be high.
+
+
+* * *
+
+### Section 2.4 Initial Model RMSE
+
+* * *
+
+```{r model_rmse}
+rmse(AICmodel$resid, ames_subset$price) # RMSE, Non-Log Transformed Lot.Area
+```
+
+The Initial model RMSE is $194646.9 which is really high relative to the unit of price in the dataset. 
+
+* * *
+
+### Section 2.5 Overfitting 
+* * *
+
+To see if overfitting has occurred to the initial model, we'll test the model on out of sample data, which is the test data that's been given.
+
+```{r loadtest, message = FALSE}
+load("ames_test.Rdata")
+prediction <- predict(AICmodel, newdata=ames_test)
+residuals <- prediction - ames_test$price
+ggplot(data = ames_test, aes(x=price, y=residuals)) + geom_point(alpha = 0.6) + geom_hline(linetype="dashed", yintercept = 0) + labs(x = "Fitted Values", y = "Residuals")
+rmse(residuals, ames_test$price)
+```
+
+We can see that based on the residuals plot, instead of underpredicting the price of the lots, it actually overpredicts it now. The RMSE is higher for when the model predicts the test data, but that is to be expected because it is an out of sample data and the difference between both is not that significant.
+
+Log transforming both the price ang the lot area variables may help lessen the spread of the data and remove skewness, let's see if that would decrease our RMSE.
+
+```{r}
+
+model_transformed <- lm(log(price) ~ . - Lot.Area + log(Lot.Area), data=ames_subset)
+AICmodel_transformed <- stepAIC(model_transformed, direction="backward", k=2)
+prediction <- exp(predict(AICmodel_transformed, newdata=ames_test))
+residuals <- prediction - ames_test$price
+ggplot(data = ames_test, aes(x=price, y=residuals)) + geom_point(alpha = 0.6) + geom_hline(linetype="dashed", yintercept = 0) + labs(x = "Fitted Values", y = "Residuals")
+rmse(residuals, ames_test$price) # RMSE, Non-Log Transformed Lot.Area
+```
+
+Though the RMSE is lower, it is not a significant difference. Though it can be observed that some of the outliers in the residuals plot have come closer to 0.
+
+* * *
+
+## Part 3 Development of a Final Model
+
+### Section 3.1 Final Model
+
+* * *
+
+```{r fig.height=10, fig.width=10}
+
+ames_subset_many <- mutate(ames_train, Lot.Age = Yr.Sold - Year.Built)
+ames_subset_many <- subset(ames_subset_many, select = c(price, Lot.Age, Lot.Area, Lot.Shape, Lot.Config, Mas.Vnr.Area, Garage.Cars, Garage.Area, Paved.Drive, Mo.Sold, Sale.Condition, Fireplaces, TotRms.AbvGrd, Kitchen.Qual, Full.Bath, Total.Bsmt.SF, Overall.Cond, Bldg.Type))
+
+finalmodel <- bas.lm(log(price) ~ . - Lot.Area + log(Lot.Area), prior = "JZS", modelprior = uniform(), data=na.omit(ames_subset_many))
+
+image(finalmodel, rotate = FALSE)
+
+summary(finalmodel)
+
+```
+
+* * *
+
+### Section 3.2 Transformation
+
+* * *
+
+Variables that were transformed were Lot.Area and price, though the RMSE difference as shown earlier in the inital model was not significant, the transformation would help fix the right skewness of the two variables.
+
+* * *
+
+### Section 3.3 Variable Interaction
+
+* * *
+
+A variable interaction that was added was Lot.Age, which is just 2019(the current year as of writing this) subtracted by the Year.Built variable. The added variable yielded lower RMSEs on the test and training data during the modeling process. 
+
+* * *
+
+### Section 3.4 Variable Selection
+* * *
+
+The variables that were included in the final model were all the predictors that didn't have a lot of factors such as Neighborhood and variables that did not have missing values that would reach more than 50 rows. As to why all the predictors were chosen is because some predictors would have been overlooked and ignored but could've been a significant predictor in the final model. 
+
+Model Selection procedures via Bayesian Model Averaging would then help us pick out the right model among all the possible models. The possible models which has different combinations of predictors among the initial set, ranking models with the lowest probability of being the true actual model lower.
+
+Though the initial set of predictors used in the initial model were also tested using the same bayesian model averaging approach, the results of that would be covered in the next section.
+
+* * *
+
+### Section 3.5 Model Testing
+* * *
+
+Initially, the model that was first chosen had the set of predictors that came from the initial model along with the log transform on price and lot area. The new variable which was the Lot.Age was also included in this set of predictors which also caused the removal of Year.Built in the set of predictors.
+
+```{r model_testing}
+ames_test <- ames_test %>% mutate(Lot.Age = Yr.Sold - Year.Built)
+
+ames_subset <- mutate(ames_train, Lot.Age = 2019 - Year.Built)
+ames_subset <- subset(ames_subset, select = c(price, Lot.Area, Lot.Age, Overall.Qual, Sale.Condition, Mo.Sold, TotRms.AbvGrd, Kitchen.AbvGr, Bedroom.AbvGr))
+
+bas_ames <- bas.lm(log(price) ~ . - Lot.Area + log(Lot.Area), prior = "JZS", modelprior = uniform(), data=na.omit(ames_subset))
+bas_ames_ZS <- bas.lm(log(price) ~ . - Lot.Area + log(Lot.Area), prior = "ZS-null", modelprior = uniform(), data=na.omit(ames_subset))
+
+predictionZS1 <- predict(bas_ames_ZS, newdata=ames_test, estimator="BPM")
+predictionJZS1 <- predict(bas_ames, newdata=ames_test, estimator="BPM")
+
+residuals <- exp(predictionZS1$fit) - ames_test$price
+sqrt(mean((ames_test$price - exp(predictionZS1$fit))^2, na.rm=TRUE))
+residuals <- exp(predictionJZS1$fit) - ames_test$price
+sqrt(mean((ames_test$price - exp(predictionJZS1$fit))^2, na.rm=TRUE))
+
+
+```
+
+With Bayesian Model Averaging with two different priors with one being JZS prior and the other being ZS-Null. Prediction using the model selection "Best Predictive Model" or BPM, the RMSE with the ZS-Null prior was lower which yielded a value of $32473.36. But the differene between the two in terms of RMSE is minimal.
+
+Then, with all the predictors in the final model, the same method was used, doing bayesian model averaging with one having the prior of JZS and one being ZS-Null .
+
+```{r}
+bas_ames <- bas.lm(log(price) ~ . - Lot.Area + log(Lot.Area), prior = "JZS", modelprior = uniform(), data=na.omit(ames_subset_many))
+bas_ames_ZS <- bas.lm(log(price) ~ . - Lot.Area + log(Lot.Area), prior = "ZS-null", modelprior = uniform(), data=na.omit(ames_subset_many))
+
+predictionZS1 <- predict(bas_ames_ZS, newdata=ames_test, estimator="BPM")
+predictionJZS1 <- predict(bas_ames, newdata=ames_test, estimator="BPM")
+
+residuals <- exp(predictionZS1$fit) - ames_test$price
+sqrt(mean((ames_test$price - exp(predictionZS1$fit))^2, na.rm=TRUE))
+residuals <- exp(predictionJZS1$fit) - ames_test$price
+sqrt(mean((ames_test$price - exp(predictionJZS1$fit))^2, na.rm=TRUE))
+```
+
+With all the other predictors included, the RMSE has a noticeable difference as compared to \$32473.36 which was what the best predictive model yielded earlier. This time, with the JZS prior, the rmse is even lower at \$27884.59.
+
+* * *
+
+## Part 4 Final Model Assessment
+
+### Section 4.1 Final Model Residual
+
+```{r}
+
+predictionJZStrain <- predict(finalmodel, newdata=ames_subset_many, estimator="BPM")
+residuals <- exp(predictionJZStrain$fit) - ames_subset_many$price
+
+
+ggplot(data = ames_subset_many, aes(x=price, y=residuals)) + geom_point(alpha = 0.6) + geom_hline(linetype="dashed", yintercept = 0) + labs(x = "Fitted Values", y = "Residuals")
+```
+
+* * *
+
+The residuals show a random spread around 0 but it still trouble predicting prices of expensive lots which may be attributed to the lack of data for wealthier places.
+
+* * *
+
+### Section 4.2 Final Model RMSE
+
+```{r}
+sqrt(mean((ames_subset_many$price - exp(predictionJZStrain$fit))^2, na.rm=TRUE))
+```
+
+* * *
+
+The RMSE for the final model has a value of \$34469.41 in the training data and an RMSE of \$27884.59 for the test data.
+
+* * *
+
+### Section 4.3 Final Model Evaluation
+
+* * *
+
+The final model's strength comes at predicting houses that are not too high when it comes to price, as seen in the residual plots. The final model that's been created although has exhibited a weakness when it comes to predicting very expensive houses as it has a larger more spread out error and the model tends to heavily overpredict and underpredict values as the house gets more expensive.
+
+* * *
+
+### Section 4.4 Final Model Validation
+
+* * *
+
+```{r loadvalidation, message = FALSE}
+load("ames_validation.Rdata")
+ames_validation <- mutate(ames_validation, Lot.Age = 2019 - Year.Built)
+
+predict <- predict(finalmodel, ames_validation, estimator="BPM", se.fit=TRUE)
+expconfint <- exp(confint(predict))
+
+sqrt(mean((ames_validation$price - exp(predict$fit))^2, na.rm=TRUE))
+
+```
+When applied to the validation data, the RMSE of the final model is \$28375.57.
+
+The RMSE of the final model has a lower RMSE than that of the training data and has a higher RMSE than the test data. It shows that the model did not overfit because of this.
+
+```{r}
+coverage <- mean(ames_validation$price > expconfint[,"2.5%"] &
+                            ames_validation$price < expconfint[,"97.5%"], na.rm=TRUE)
+coverage
+```
+
+97.4% of the 95% predictive credible interval contain the true price of the house in the validation dataset.
+
+With all the results given, the final model properly reflects uncertainty as it was able to perform well on an out-of-sample dataset.
+
+* * *
+
+## Part 5 Conclusion
+* * *
+
+
+The model that was created is able to capture the true price of the house within the 95% predictive credible interval 97.4% of the time. The final model could be used get a rough estimate of the true value of a property, the employer could check if the asking price falls within the 95% predictive credible interval and with that information, it could aid him or her in decision-making.
+
+I have learned that the data does not have a lot of examples of houses that is apple spare fairly expensive and because of that, I had trouble creating a model that would predict the value of expensive houses as accurately as it does for houses that are not expensive. In my model, i've learned that better models for predicting prices could be created with the help of expert opinion. Other variable transformations or creation of other variables may help improve the accuracy of the model more. 
+
+* * *

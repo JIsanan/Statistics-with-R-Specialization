@@ -1,0 +1,89 @@
+---
+title: "Exploring the BRFSS data"
+output: 
+  html_document: 
+    fig_height: 4
+    highlight: pygments
+    theme: spacelab
+---
+
+## Setup
+
+### Load packages
+
+```{r load-packages, message = FALSE}
+library(ggplot2)
+library(dplyr)
+```
+
+### Load data
+
+
+```{r load-data}
+load("brfss2013.RData")
+```
+
+
+
+* * *
+
+## Part 1: Data
+
+  The Behavioral Risk Factor Surveillance System (BRFSS) is a collaborative project between all 50 states including the District of Columbia, Guam, Puerto Rico, and the U.S. Virgin Islands. BRFSS is known for being the largest continuously conducted health survey system in the world. BRFSS is a system of phone-surveys that collect data from residents from the U.S with regards to their health-related risk behaviors, chronic health conditions, and use of preventive services.
+
+### Generalizability
+
+The BRFSS generalizes to all adults because the phone numbers that are chosen for the surveys are retrieved via 'Random Sampling'
+
+### Causality
+
+The BRFSS is not experimental but observational, thus we cannot find causality but only correlation. Though BRFSS was conducted via random sampling, no random assignment was performed as the people who were surveyed were not subject to any experiment or assignment.
+
+* * *
+
+## Part 2: Research questions
+
+**Research quesion 1:**
+People who are financially doing well might be able to afford medication or buy food that would be considered nutricious. Is there a correlation between a person's income(_incomg) and his/her health(_rfhlth)? (_rfhlth, _incomg)
+
+**Research quesion 2:**
+Smoking is publicly labeled as something that's bad for someone's health. Though smoking is bad for the health, does it actually have an association with the smoker(X_smoker3) him or herself encountering any type of cancer?(chcocncr(other cancer) and chcscncr(skin cancer)) (X_smoker3, chcocncr, chcscncr)
+
+**Research quesion 3:**
+A person with a high BMI is generally considered as someone who's at risk at many health issues. One health issue that is generally associated with BMI(X_bmi5cat) is having high blood pressure(bphigh4), especially if the person him or herself does not exercise. Is the BMI and the fact that he/she has not exercised in the past 30 days(X_totinda), related to having high blood pressure? (X_bmi5cat, bphigh4, X_totinda) 
+
+* * *
+
+## Part 3: Exploratory data analysis
+
+**Research quesion 1:**
+
+```{r fig.height = 7, fig.width = 12}
+
+income_health_employ <- brfss2013 %>% select(X_rfhlth, X_incomg) %>% filter(!is.na(X_rfhlth), !is.na(X_incomg))
+
+ggplot(data=income_health_employ, aes(x=factor(X_incomg), fill=factor(X_rfhlth))) + geom_bar(position='fill')
+```
+
+It is interesting to note here that as the income of the person increases, so does the health of the person. There is a correlation between income and health because of that.
+
+**Research quesion 2:**
+
+```{r fig.height = 7, fig.width = 12}
+smokers_cancer <- brfss2013 %>% filter(!is.na(chcscncr), !is.na(chcocncr), !is.na(X_smoker3)) %>% mutate(had_or_has_cancer=ifelse(chcscncr == 'Yes' | chcocncr == 'Yes', 'Yes', 'No')) %>% select(X_smoker3, had_or_has_cancer)
+
+ggplot(data=smokers_cancer, aes(x=factor(X_smoker3), fill=factor(had_or_has_cancer))) + geom_bar(position='fill', width=0.5)
+
+```
+
+It shows that there is not much difference in terms of encountering cancer between people who never smoked and people who currently smoke, but one thing to note here is that people who formerly smoked had a higher percentage of having cancer currently or previously, which shows their correlation(between people who smoked before and people who smoke currently in terms of having encountered cancer).
+
+**Research quesion 3:**
+
+```{r}
+high_blood_bmi <- brfss2013 %>% filter(!is.na(X_bmi5cat), !is.na(bphigh4), X_totinda=='No physical activity or exercise in last 30 days') %>% mutate(had_or_has_high_bp=ifelse(bphigh4=='Yes'|bphigh4=='Yes, but female told only during pregnancy', 'Yes', 'No')) %>% select(X_bmi5cat, had_or_has_high_bp)
+
+ggplot(data=high_blood_bmi, aes(x=factor(X_bmi5cat), fill=factor(had_or_has_high_bp))) + geom_bar(position='fill', width=0.5)
+```
+
+As the BMI of gets higher(thus getting categorized higher), so does the percentage of people who encountered high blood pressure. It shows a correlation between 'encountering blood pressure' and bmi given that the person has not exercised within the last 30 days.

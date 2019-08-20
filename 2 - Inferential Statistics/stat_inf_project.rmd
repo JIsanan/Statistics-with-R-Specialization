@@ -1,0 +1,240 @@
+---
+title: "Statistical inference with the GSS data"
+output: 
+  html_document: 
+    fig_height: 4
+    highlight: pygments
+    theme: spacelab
+---
+
+## Setup
+
+### Load packages
+
+```{r load-packages, message = FALSE}
+library(ggplot2)
+library(dplyr)
+library(statsr)
+```
+
+### Load data
+
+Make sure your data and R Markdown files are in the same directory. When loaded
+your data file will be called `gss`. Delete this note when before you submit 
+your work. 
+
+```{r load-data}
+load("gss.Rdata")
+```
+
+
+
+
+## Part 1: Data
+
+GSS(General Social Survey) is a survey that's been conducted annually since 1972. The dataset that will be used in this document will be a modified version of the GSS(1972 - 2012) where the missing values have been removed and a couple of modifications have been made also to make it easier for statistical tests. 
+
+The survey is done via random sampling and is observational, so therefore we cannot establish a causal relationship between the variables, and since it is done via random sampling, it can be generalized to the entire US population.
+* * *
+
+## Part 2: Research question
+
+Question 1: Pregnancy due to rape has been a very controversial topic for long periods of time in history. Is there a difference between the proportion of rape cases between 1990 and 2012 in the US? (abrape, year, sex)
+
+Question 2: Education has changed over time, whether it be the style of teaching, financial cost or the accessibility of Education. With this change, has there been a change in the years of highest educational attainment of individuals between 1990 and 2012 in the US? (educ, year)
+
+Question 3: Economy has changed over the years, has there been a change in income for individuals between 1990 and 2012 in the US? (coninc, year)
+
+## Part 3: Exploratory data analysis
+
+## Question 1:
+First, create the dataframe rapepregnant_1990_and_2012 which contains the cases of pregnancy via rape in the years 1990 and 2012. We of course filter out men and the NA values for sex and abrape. 
+```{r}
+rapepregnant_1990_and_2012 <- gss %>% filter(!is.na(sex), !is.na(abrape), year == '1990' | year == '2012', sex == 'Female') %>% select(year, abrape)
+```
+Then we show the summary statistics:
+```{r}
+rapepregnant_1990 <- rapepregnant_1990_and_2012 %>% filter(year == '1990')
+rapepregnant_2012 <- rapepregnant_1990_and_2012 %>% filter(year == '2012')
+```
+Datatables separating surveys between 1990 and 2012 were created for the sake of summarizing information.
+```{r}
+table(rapepregnant_1990$abrape)
+```
+This is the 1990 sample and it shows the amount of people that said that they got pregnant by rape and also the amount of people that did say that they didn't get pregnant by rape. via the abrape variable.
+```{r}
+table(rapepregnant_2012$abrape)
+```
+This is the 2012 sample. There is a difference between the two values for 1990 and 2012 and both the 'Yes' and 'No' response increased.
+```{r}
+ggplot(data=rapepregnant_1990_and_2012, aes(x=factor(year), fill=factor(abrape))) + geom_bar(position='fill', width=0.5)
+```
+In the plot, it does show that the proportion of 'No' answers did become higher in 2012 compared to its previous proportion.
+
+## Question 2.
+
+```{r}
+educ_1990 <- gss %>% filter(!is.na(educ), year == '1990') %>% select(year, educ)
+educ_2012 <- gss %>% filter(!is.na(educ), year == '2012') %>% select(year, educ)
+
+```
+The dataframe educ_1990 contains the highest years of school completed among the population in the year 1990 while educ_2012 contains data from 2012.
+```{r}
+educ_1990 %>% summarise(mean=mean(educ), median=median(educ), iqr=IQR(educ), n=n())
+```
+This is the summary statistics for 1990 data.
+
+```{r}
+educ_2012 %>% summarise(mean=mean(educ), median=median(educ), iqr=IQR(educ), n=n())
+```
+This is the summary statistics for 2012 data. Though the difference may look small, we do see an increase in the median and mean highest educational attainment years for individuals.
+
+```{r}
+ggplot(data=educ_1990, aes(x=educ)) + geom_histogram(binwidth=0.5)
+```
+This is the distribution for the 1990 sample.
+```{r}
+ggplot(data=educ_2012, aes(x=educ)) + geom_histogram(binwidth=0.5)
+```
+This is the distribution for the 2012 sample, though at plain site it does look like there is no difference between the two, but an inferential test might say otherwise.
+
+## Question 3:
+
+```{r}
+income_1990 <- gss %>% filter(!is.na(coninc), year == '1990') %>% select(year, coninc)
+income_2012 <- gss %>% filter(!is.na(coninc), year == '2012') %>% select(year, coninc)
+```
+The dataframe income_1990 contains the constant income among the population in the year 1990 while income_2012 contains data from 2012.
+```{r}
+income_1990 %>% summarise(mean=mean(coninc), median=median(coninc), iqr=IQR(coninc), n=n())
+```
+This is the summary statistics for 1990 data.
+
+```{r}
+income_2012 %>% summarise(mean=mean(coninc), median=median(coninc), iqr=IQR(coninc), n=n())
+```
+This is the summary statistics for 2012 data. What is interesting to see here is that the median got smaller compared to the data from 1990 but the mean got higher. It might suggest a lot of outliers on the right tail which caused the mean to rise up.
+
+```{r}
+ggplot(data=income_1990, aes(x=coninc)) + geom_histogram(bins = 30)
+```
+This is the distribution for the 1990 sample.
+```{r}
+ggplot(data=income_2012, aes(x=coninc)) + geom_histogram(bins = 30)
+```
+This is the distribution for the 2012 sample, by looking at the 1990 data, we can see that the outliers at the edge-most of the distribution had a higher proportion compared to the 2012 data which does not really explain the higher mean value for the 2012 data, but there could be other factors that could've caused this to happen.
+
+
+## Part 4: Inference
+
+## Question 1:
+
+First, create the dataframe rapepregnant_1990_and_2012 which contains the cases of pregnancy via rape in the years 1990 and 2012. We of course filter out men and the NA values for sex and abrape. 
+```{r}
+rapepregnant_1990_and_2012 <- gss %>% filter(!is.na(sex), !is.na(abrape), year == '1990' | year == '2012', sex == 'Female') %>% select(year, abrape)
+```
+
+Then, conditions should be checked if the Central Limit Theorem is applicable to this dataframe. 
+
+1. The data from GSS is collected via random sample and the total number of samples is lesser than 10% of the total population of the U.S
+
+2. There should be at least 10 successes and 10 failures in the sample. If we would label pregnancy as a result of rape as a case of success(which is denoted by a value of 'Yes') then:
+
+```{r}
+rapepregnant_1990 <- rapepregnant_1990_and_2012 %>% filter(year == '1990')
+rapepregnant_2012 <- rapepregnant_1990_and_2012 %>% filter(year == '2012')
+```
+Datatables separating surveys between 1990 and 2012 were created for the sake of summarizing information.
+```{r}
+table(rapepregnant_1990$abrape)
+```
+In the 1990 sample, the cases of successes and failures exceed 10. So the condition was satisfied.
+```{r}
+table(rapepregnant_2012$abrape)
+```
+In the 2012 sample, the cases of successes and failures exceed 10. So the condition was satisfied.
+
+Since both conditions were satisfied, we are then ready to proceed with the Inferential Tests
+```{r}
+ inference(y = abrape, x= factor(year) ,data = rapepregnant_1990_and_2012, alternative='twosided', statistic = "proportion",null=0, type="ci", success = 'Yes', method = "theoretical")
+```
+
+Based on the Confidence Interval, we are 95% sure that there is a 2.27% to 11.49% difference between 1990 and 2012 when it comes to pregnancy caused by rape.
+
+Then a Hypothesis Test will be conducted:
+
+$H_0: p_{1990} - p_{2012} = 0$;  
+$H_A: p_{1990} - p_{2012} \ne 0$ 
+
+```{r}
+inference(y = abrape, x= factor(year) ,data = rapepregnant_1990_and_2012, alternative='twosided', statistic = "proportion",null=0, type="ht", success = 'Yes', method = "theoretical")
+```
+
+The Hypothesis Test resulted in a p-value that's 0.0043, which is lesser than our alpha of 5% so there is indeed convincing evidence that there is a difference between pregnancy caused by rape between 1990 and 2012.
+
+## Question 2:
+
+The dataframe educ_1990_and_2012 contains the highest years of school completed among the population in the years 1990 and 2012.
+
+```{r}
+educ_1990_and_2012 <- gss %>% filter(!is.na(educ), year == '1990' | year == '2012') %>% select(year, educ)
+```
+
+Then, conditions should be checked if the Central Limit Theorem is applicable to this dataframe.
+
+1. The data from GSS is collected via random sample and the total number of samples is lesser than 10% of the total population of the U.S.
+
+2. Since the population distribution is skewed, the sample size needs to be greater than or equal to 30. As shown by the inference test for Confidence interval below, the sample size for 1990 is 1370 and the sample size for 2012 is 1972 which satisfies this condition.
+
+Since both conditions were satisfied, we are then ready to proceed with the Inferential Tests
+```{r}
+inference(y = educ, x= factor(year) ,data = educ_1990_and_2012, alternative='twosided', statistic = "mean",null=0, type="ci", method = "theoretical")
+```
+
+Based on the Confidence Interval, we are 95% sure that there is a 0.49 to 0.92 difference in years between 1990 and 2012 when it comes to years of completed education between individuals.
+
+Then a Hypothesis Test will be conducted:
+
+$H_0: p_{1990} - p_{2012} = 0$;  
+$H_A: p_{1990} - p_{2012} \ne 0$ 
+
+```{r}
+
+inference(y = educ, x= factor(year) ,data = educ_1990_and_2012, alternative='twosided', statistic = "mean",null=0, type="ht", method = "theoretical")
+```
+
+The Hypothesis Test resulted in a p-value that's lesser than 0.0001, which is significantly lesser than our alpha of 5% so there is indeed convincing evidence that there is a difference between the years of educational attainment between 1990 and 2012.
+
+## Question 3:
+
+The dataframe income_1990_and_2012 contains the income(in constant) among the population in the years 1990 and 2012.
+```{r}
+income_1990_and_2012 <- gss %>% filter(!is.na(coninc), year == '1990' | year == '2012') %>% select(year, coninc)
+```
+
+Then, conditions should be checked if the Central Limit Theorem is applicable to this dataframe.
+
+1. The data from GSS is collected via random sample and the total number of samples is lesser than 10% of the total population of the U.S.
+
+2. Since the population distribution is skewed, the sample size needs to be greater than or equal to 30. As shown by the inference test for Confidence interval below, the sample size for 1990 is 1229 and the sample size for 2012 is 1758 which satisfies this condition.
+
+Since both conditions were satisfied, we are then ready to proceed with the Inferential Tests
+```{r}
+inference(y = coninc, x= factor(year) ,data = income_1990_and_2012, alternative='twosided', statistic = "mean",null=0, type="ci", method = "theoretical")
+```
+
+Based on the Confidence Interval, we are 95% sure that there is a 389.3592 to 6199.6347 difference between 1990 and 2012 when it comes to years of completed education between individuals.
+
+
+Then a Hypothesis Test will be conducted:
+
+$H_0: p_{1990} - p_{2012} = 0$;  
+$H_A: p_{1990} - p_{2012} \ne 0$ 
+
+```{r}
+
+inference(y = coninc, x= factor(year) ,data = income_1990_and_2012, alternative='twosided', statistic = "mean",null=0, type="ht", method = "theoretical")
+```
+
+The Hypothesis Test resulted in a p-value that's 0.0263, which is lesser than our alpha of 5% so there is indeed convincing evidence that there is a difference between the income of individuals between 1990 and 2012.
+

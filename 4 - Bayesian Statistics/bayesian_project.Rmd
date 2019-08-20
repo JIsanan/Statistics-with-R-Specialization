@@ -1,0 +1,331 @@
+## Setup
+```{r global_options, include=FALSE}
+knitr::opts_chunk$set(warning=FALSE, message=FALSE)
+```
+
+### Load packages
+
+```{r load-packages, message = FALSE}
+library(ggplot2)
+library(dplyr)
+library(statsr)
+library(BAS)
+```
+
+### Load data
+
+
+```{r load-data}
+load("movies.Rdata")
+```
+
+* * *
+
+## Part 1: Data
+
+The movies dataset contain 651 movies that were randomly sampled. The movies that were sampled were also produced and released before 2016.
+
+The dataset contains various information from websites that store and deal with movies such as imdb and rottentomatoes. In the dataset, information such as some actors/actress and directors are also included, included are also whether one of the actors/actress in the movie won. It also includes if the movie was nominated or won the best picture award.
+
+The data was randomly sampled so we could say that it could be generalized towards the entire population of movies, however since this is only randomly sampled, we cannot conclude causality within the data but only correlation.
+
+* * *
+
+## Part 2: Data manipulation
+
+- Create new variable based on `title_type`: New variable should be called 
+`feature_film` with levels yes (movies that are feature films) and no (2 pt)
+
+```{r}
+movies <- movies %>% mutate('feature_film' = ifelse(title_type == 'Feature Film', 'yes', 'no'))
+
+```
+
+- Create new variable based on `genre`: New variable should be called `drama`
+with levels yes (movies that are dramas) and no (2 pt)
+
+```{r}
+movies <- movies %>% mutate('drama' = ifelse(genre == 'Drama', 'yes', 'no'))
+```
+
+- Create new variable based on `mpaa_rating`: New variable should be called `mpaa_rating_R` with levels yes (movies that are R rated) and no (2 pt)
+
+```{r}
+movies <- movies %>% mutate('mpaa_rating_R' = ifelse(mpaa_rating == 'R', 'yes', 'no'))
+```
+
+- Create two new variables based on `thtr_rel_month`: 
+    + New variable called `oscar_season` with levels yes (if movie is released 
+    in November, October, or December) and no (2 pt)
+    + New variable called `summer_season` with levels yes (if movie is released 
+    in May, June, July, or August) and no (2 pt)
+
+```{r}
+movies <- movies %>% mutate('oscar_season' = ifelse(thtr_rel_month == '11' | thtr_rel_month == '12' | thtr_rel_month == '10', 'yes', 'no'))
+movies <- movies %>% mutate('summer_season' = ifelse(thtr_rel_month == '5' | thtr_rel_month == '6' | thtr_rel_month == '7' | thtr_rel_month == '8', 'yes', 'no'))
+```
+
+Remove the variables that won't be used from the dataframe
+
+```{r}
+movies <- movies %>% dplyr::select(audience_score, feature_film, drama, runtime, mpaa_rating_R, thtr_rel_year, oscar_season, summer_season,imdb_rating, imdb_num_votes, critics_score, best_pic_nom, best_pic_win, best_actor_win, best_actress_win, best_dir_win, top200_box)
+```
+
+* * *
+
+## Part 3: Exploratory data analysis
+
+- Conduct exploratory data analysis of the relationship between `audience_score` 
+and the new variables constructed in the previous part
+
+- `audience_score` and `feature_film` 
+```{r}
+movies %>% filter(feature_film == "yes") %>% summarise(mean=mean(audience_score), median=median(audience_score), IQR=IQR(audience_score), size=n())
+movies %>% filter(feature_film == "no") %>% summarise(mean=mean(audience_score), median=median(audience_score), IQR=IQR(audience_score), size=n())
+```
+
+Movies in the data seem to have a higher mean and median when the movie is not a Feature Film. Since the mean is lower than the median in both, then we could assume that it has a left skew. The higher IQR given by the movies that are feature films shows that it has a lesser spread than movies that are not featue films. The number of movies that are considered Feature Films also heavily outnumber the movies that aren't.
+
+```{r}
+not_feature_film <- movies %>% filter(feature_film == "no")
+
+feature_film <- movies %>% filter(feature_film == "yes")
+
+ggplot(data=not_feature_film, aes(x=audience_score)) + geom_histogram( 
+                 col="red", 
+                 fill="green", 
+                 alpha = .2)
+ggplot(data=feature_film, aes(x=audience_score)) + geom_histogram( 
+                 col="red", 
+                 fill="green", 
+                 alpha = .2)
+```
+
+The histograms show that there is a left skew for both feature films(not heavily left skewed) and movies that are not feature films. Though it is very apparent that in the histogram for movies that aren't feature films that there is a lack of data for smaller audience scores, this may be attributed because of the fact that there is only a few data in the movies dataset for non-feature films.
+
+- `audience_score` and `drama` 
+```{r}
+movies %>% filter(drama == "yes") %>% summarise(mean=mean(audience_score), median=median(audience_score), IQR=IQR(audience_score), size=n())
+movies %>% filter(drama == "no") %>% summarise(mean=mean(audience_score), median=median(audience_score), IQR=IQR(audience_score), size=n())
+```
+
+For movies that are considered 'drama', there is a slight increase in audience score as seen on the mean and median. The data for drama movies and non-drama movies seem to have a slight difference in size.
+
+```{r}
+not_drama <- movies %>% filter(drama == "no")
+
+drama <- movies %>% filter(drama == "yes")
+
+ggplot(data=not_drama, aes(x=audience_score)) + geom_histogram()
+ggplot(data=drama, aes(x=audience_score)) + geom_histogram()
+```
+
+There is a left skew on both but it is less apparent for movies that are not drama and it is more evenly distributed than movies that are dramas which show that there is a clear and stronger left skew.
+
+- `audience_score` and `mpaa_rating_R` 
+```{r}
+movies %>% filter(mpaa_rating_R == "yes") %>% summarise(mean=mean(audience_score), median=median(audience_score), IQR=IQR(audience_score), size=n())
+movies %>% filter(mpaa_rating_R == "no") %>% summarise(mean=mean(audience_score), median=median(audience_score), IQR=IQR(audience_score), size=n())
+```
+
+Though there is a difference in audience scores for movies with an mpaa rating of R and for movies that aren't rated R in its mpaa, the difference is very minimal so there is a chance that there's little to no difference at all for movies that are mpaa rated R and for those that aren't.  
+
+```{r}
+not_mpaa_rating_R <- movies %>% filter(mpaa_rating_R == "no")
+
+mpaa_rating_R <- movies %>% filter(mpaa_rating_R == "yes")
+
+ggplot(data=not_mpaa_rating_R, aes(x=audience_score)) + geom_histogram()
+ggplot(data=mpaa_rating_R, aes(x=audience_score)) + geom_histogram()
+```
+
+The plots for both mpaa_rating_R and not_mpaa_rating_R are both very similar as well, both are left skewed while left skewness of not_mpaa_rating_R is more apparent.
+
+- `audience_score` and `oscar_season` 
+```{r}
+movies %>% filter(oscar_season == "yes") %>% summarise(mean=mean(audience_score), median=median(audience_score), IQR=IQR(audience_score), size=n())
+movies %>% filter(oscar_season == "no") %>% summarise(mean=mean(audience_score), median=median(audience_score), IQR=IQR(audience_score), size=n())
+```
+
+Movies that are released in the oscar season seem to have a higher audience score but the difference is minimal so it may not signify anything.
+
+```{r}
+not_oscar_season <- movies %>% filter(oscar_season == "no")
+
+oscar_season <- movies %>% filter(oscar_season == "yes")
+
+ggplot(data=not_oscar_season, aes(x=audience_score)) + geom_histogram()
+ggplot(data=oscar_season, aes(x=audience_score)) + geom_histogram()
+```
+
+Both plots show a left skew but the skew is more apparent for the not_oscar_season. The reason as to why it is more apparent for the not_oscar_season is probably attributed to the fact that it has more data than movies that are of oscar_season.
+
+- `audience_score` and `summer_season` 
+```{r}
+movies %>% filter(summer_season == "yes") %>% summarise(mean=mean(audience_score), median=median(audience_score), IQR=IQR(audience_score), size=n())
+movies %>% filter(summer_season == "no") %>% summarise(mean=mean(audience_score), median=median(audience_score), IQR=IQR(audience_score), size=n())
+```
+
+Movies that are released in the summer season has a higher audience score but the difference is very minimal so it there may be a big chance that it may not signify anything.
+
+```{r}
+not_summer_season <- movies %>% filter(summer_season == "no")
+
+summer_season <- movies %>% filter(summer_season == "yes")
+
+ggplot(data=not_summer_season, aes(x=audience_score)) + geom_histogram()
+ggplot(data=summer_season, aes(x=audience_score)) + geom_histogram()
+```
+
+Both plots show a left skew again, but it is more apparent for the not_summer_season plot. It may be, like the oscar and the not_oscar_season plot be attributed to the size of the data for the not_summer_plot as opposed to the summer_plot.
+
+* * *
+
+## Part 4: Modeling
+
+### Creating the model
+
+Bayesian Linear Regression will be used to create a prediction model for creating predictions on the audience_score of movies. JZS or Jeffreys-Zellner-Siow prior will be used, therefore the coefficients will have a Zellner-Siow Cauchy prior and a Jeffreys prior on sigma. The modelprior will be uniform and the data will be the movies dataset with rows containing values of NA removed. The movies dataset used before model selection will only have the following variables.
+
+- `feature_film`
+- `drama`
+- `runtime`
+- `mpaa_rating_R`
+- `thtr_rel_year`
+- `oscar_season`
+- `summer_season`
+- `imdb_rating`
+- `imdb_num_votes`
+- `critics_score`
+- `best_pic_nom`
+- `best_pic_win`
+- `best_actor_win`
+- `best_actress_win`
+- `best_dir_win`
+- `top200_box`
+
+and the variable to be predicted which is `audience_score`.
+
+```{r}
+bas_movies <- bas.lm(audience_score ~ . - audience_score, data = na.omit(movies), prior = "JZS", modelprior = uniform())
+
+summary(bas_movies)
+```
+
+The summary above shows the top 5 models based on their posterior probabilities, all the models have an equal prior probability due to the uniform prior distribution. Since the best model will be used as the base model, the top model will have a Bayes Factor of 1. The variable with the highest inclusion probability aside from the intercept is imdb_rating which is a variable that's included in the top 5 models. The variable with the second highest inclusion probability is critics_score which is also included in the top 5 models.
+
+
+```{r}
+image(bas_movies, rotate = FALSE)
+```
+
+Based on the image of the model space, imdb_rating is a variable that's shown to be present in the top 15 models, critics_score is also shown to be present in majority of the top 15 models.
+
+```{r}
+plot(bas_movies, which=4)
+```
+
+On the plot of inclusion probabilities, the most note-worthy variables other than the intercept are shown to be imdb_rating and critics_score as it has an inclusion probability higher than .5.
+
+```{r}
+plot(bas_movies, which=1)
+```
+
+The plot shows a residuals vs. fitted for the BMA model. It shows that there's a bit of a bias for when the audience scores that are fitted are small, there could be many causes to this. One cause may be the fact that there may be lacking data for smaller audience scores as opposed to higher audience scores which may then cause the model to predict values of higher audience scores better.
+
+- Since we are faced with model uncertainty, we will explore what models we may get when we choose various criteria when it comes to model selection.
+
+### Choosing the Model
+
+```{r}
+prediction <- predict(bas_movies, estimator="BMA", se.fit = TRUE)
+variable.names(prediction)
+```
+
+- Under the BMA model, we find that it uses all the variables or predictors.
+
+```{r}
+prediction <- predict(bas_movies, estimator="HPM", se.fit = TRUE)
+variable.names(prediction)
+```
+
+- In the Highest Probability Model, which is the model which has the highest posterior probability. We can see that the model used imdb_rating and critics_score as its predictors. This model would probably be the best choice if we have a zero one loss.
+
+```{r}
+prediction <- predict(bas_movies, estimator="MPM", se.fit = TRUE)
+variable.names(prediction)
+```
+
+- The Median Probability model which is the model with all the predictors that has an inclusion probability higher than .5. Since only critics_score and imdb_rating has inclusion probabilities higher than .5, then it is the same as the Highest Probability Model.
+
+```{r}
+prediction <- predict(bas_movies, estimator="BPM", se.fit = TRUE)
+summary(prediction)
+variable.names(prediction)
+```
+
+- Since we will be doing prediction, we will be choosing the Best Predictive Model which is the model which has predictions closest to BMA's given predictions. The model contains the predictors, dramayes, imdb_rating, critics_score and best_pic_winyes
+
+- We will be choosing this model for our prediction.
+
+### Model Diagonistics
+
+```{r}
+fitted_movies = fitted(bas_movies, estimator="BPM")
+resid_movies = na.omit(movies)$audience_score - fitted_movies
+frame <- data.frame(fitted=fitted_movies, resid=resid_movies)
+
+ggplot(data = frame, aes(x = fitted, y = resid)) +
+  geom_point(alpha = 0.6) +
+  geom_hline(yintercept = 0, linetype = "dashed") +
+  labs(x = "Fitted values", y = "Residuals")
+```
+
+```{r}
+glimpse(resid_movies)
+
+fitted_movies = fitted(bas_movies, estimator="BMA")
+resid_movies = na.omit(movies)$audience_score - fitted_movies
+
+glimpse(resid_movies)
+```
+
+- The plot looks similar to the BMA plot, though there is a slight difference as shown in the glimpse function. It shows that most of the residuals are spread randomly around 0 though there is a bit of a notice-able inconsistensies in spread in some areas in the plot, especially in the case when the audience score that's fitted is in the lower half. Though there is some inconsistency, majority of the residuals are still randomly spread around 0. 
+
+```{r}
+ggplot(data = frame, aes(x = resid)) +
+  geom_histogram(binwidth = 2) +
+  xlab("Residuals")
+```
+
+- The residuals or the errors follow a nearly normal distribution around 0, which is another condition to check for model diagnostics. There is a bit of a right skew which shows that there are some predictions that have higher estimates than normal. 
+
+* * *
+
+## Part 5: Prediction
+
+
+- The movie that will have its audience_score predicted is Zootopia which is a 2016 movie released by Walt Disney Pictures.
+
+```{r}
+new_data <- data.frame(audience_score = 92, feature_film = 'yes', drama = 'no', runtime = 108, mpaa_rating_R = 'no', thtr_rel_year = 2016, oscar_season = 'no', summer_season = 'no', imdb_rating = 8.0, imdb_num_votes = 379074, critics_score = 97, best_pic_nom = 'yes', best_pic_win = 'yes', best_actor_win = 'no', best_actress_win = 'yes', best_dir_win = 'no', top200_box = 'no')
+
+new_data_with_movies <- rbind(movies, new_data)
+prediction <- predict(bas_movies, newdata = new_data_with_movies, estimator="BPM", se.fit = TRUE)
+variable.names(prediction)
+ci_prediction <- confint(prediction, estimator = "BPM")
+ci_prediction[652,]
+```
+
+- After adding the data to the movies and displaying the Confidence Interval. It is shown that the audience score '92' which is the audience score of the movie, falls within the interval. The predictive model was able to capture the true audience score of the movie Zootopia.
+
+- The data for Zootopia was gathered from these sources:
+- https://www.imdb.com/title/tt2948356/
+- https://www.imdb.com/title/tt2948356/awards
+
+
+* * *
+
+## Part 6: Conclusion
+
+- Though predictive model that was used to predict the movie in this project was able to successfully predict the audience score, there could still be ways to improve the modelling process in order to get a much better model. An example improvement could be the prior distribution chosen for the coefficients could be changed to something else that's suggested by an expert on movies; another way of improving the modelling could be creation of newer variables that would aid the model. The model could also possible be improved if we had a much bigger dataset for movies.
